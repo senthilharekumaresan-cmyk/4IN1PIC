@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Picture Word Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #10101c;
+    --panel: #17182a;
+    --panel-edge: #26283f;
+    --lime: #c6ff3d;
+    --pink: #ff3d8a;
+    --blue: #3d9dff;
+    --text: #eef0fb;
+    --muted: #8b8da8;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    background:
+      radial-gradient(600px 300px at 15% -10%, rgba(61,157,255,0.25), transparent 60%),
+      radial-gradient(500px 260px at 100% 10%, rgba(198,255,61,0.12), transparent 60%),
+      var(--bg);
+    color:var(--text); font-family:'Inter',sans-serif;
+    display:flex; align-items:center; justify-content:center; padding:28px 16px;
+  }
+  .stage{width:100%; max-width:540px;}
+  .top-row{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px;}
+  .kicker{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.5rem;}
+  .kicker span{color:var(--lime);}
+  .tally{font-size:0.95rem; color:var(--muted);}
+  .tally b{color:var(--text);}
+  .track{height:6px; border-radius:4px; background:var(--panel-edge); overflow:hidden; margin-bottom:22px;}
+  .track-fill{height:100%; background:linear-gradient(90deg, var(--blue), var(--lime)); width:0%; transition:width .4s ease;}
+  .card{
+    background:var(--panel); border:1px solid var(--panel-edge); border-radius:20px;
+    padding:38px 28px 30px; text-align:center; position:relative; overflow:hidden;
+  }
+  .prompt-label{color:var(--muted); font-size:0.85rem; margin-bottom:8px;}
+  .hint{color:var(--blue); font-size:0.85rem; margin-bottom:22px; min-height:18px;}
+  .scramble{
+    font-family:'Space Grotesk',sans-serif; font-weight:700;
+    font-size:2.4rem; letter-spacing:0.15em; margin-bottom:26px; word-break:break-all;
+  }
+  .answer-img{
+    display:none;
+    width:140px; height:140px;
+    align-items:center; justify-content:center;
+    font-size:4.5rem;
+    border-radius:14px; border:2px solid var(--lime);
+    background:#1d1f36;
+    margin:0 auto 20px; box-shadow:0 0 24px rgba(198,255,61,0.25);
+  }
+  .answer-img.show{display:flex;}
+
+  .picture-grid{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:10px;
+    max-width:330px;
+    margin:0 auto 20px;
+  }
+  .picture-grid.revealed .picture-tile{
+    border-color:var(--lime);
+  }
+  .picture-tile{
+    height:105px;
+    border-radius:12px;
+    border:1px solid var(--panel-edge);
+    background:#1d1f36;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:3.2rem;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,0.02);
+  }
+
+  .answer-input{
+    width:100%; padding:14px 16px; border-radius:12px; border:1px solid var(--panel-edge);
+    background:#1d1f36; color:var(--text); font-family:'Inter',sans-serif; font-weight:600;
+    font-size:1rem; text-align:center; letter-spacing:0.05em; text-transform:uppercase;
+    outline:none;
+  }
+  .answer-input:focus{border-color:var(--blue);}
+  .row-btns{display:flex; gap:10px; margin-top:14px;}
+  .btn{
+    flex:1; border:none; border-radius:10px; padding:13px 10px;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.95rem; cursor:pointer;
+  }
+  .btn-check{background:var(--lime); color:#10101c;}
+  .btn-hint{background:#1d1f36; color:var(--text); border:1px solid var(--panel-edge);}
+  .feedback{min-height:26px; margin-top:16px; font-weight:600; font-size:0.95rem;}
+  .feedback.good{color:var(--lime);}
+  .feedback.bad{color:var(--pink);}
+  .next-btn{
+    margin-top:14px; background:var(--blue); color:#0a0f1c; border:none;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.95rem;
+    padding:12px 26px; border-radius:10px; cursor:pointer; display:none;
+  }
+  .next-btn.show{display:inline-block;}
+  .end-screen{display:none;}
+  .end-screen.show{display:block;}
+  .end-title{font-family:'Space Grotesk',sans-serif; font-size:1.8rem; font-weight:700; margin-bottom:6px;}
+  .end-sub{color:var(--muted); margin-bottom:24px;}
+  .restart-btn{
+    background:var(--blue); color:#0a0f1c; border:none;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.95rem;
+    padding:12px 26px; border-radius:10px; cursor:pointer;
+  }
+  .quiz-body.hide{display:none;}
+  @media (max-width:420px){ .scramble{font-size:1.8rem;} }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="top-row">
+    <div class="kicker">Picture <span>Word Game</span></div>
+    <div class="tally">Q<b id="qNum">1</b>/<span id="qTotal">20</span> &nbsp;•&nbsp; Score <b id="score">0</b></div>
+  </div>
+  <div class="track"><div class="track-fill" id="trackFill"></div></div>
+
+  <div class="card">
+    <div class="quiz-body" id="quizBody">
+      <div class="prompt-label">Look at the 4 pictures and find the word</div>
+      <div class="hint" id="hint"></div>
+      <div class="scramble" id="scramble" style="display:none;"></div>
+      <div id="pictureGrid" class="picture-grid"></div>
+      <input class="answer-input" id="answerInput" placeholder="TYPE YOUR ANSWER" maxlength="20">
+      <div class="row-btns">
+        <button class="btn btn-hint" id="hintBtn">Show Hint</button>
+        <button class="btn btn-check" id="checkBtn">Check</button>
+      </div>
+      <div class="row-btns">
+        <button class="btn btn-hint" id="skipBtn" style="flex:1;">Don't know? Show Answer</button>
+      </div>
+      <div class="feedback" id="feedback"></div>
+      <button class="next-btn" id="nextBtn">Next →</button>
+    </div>
+
+    <div class="end-screen" id="endScreen">
+      <div class="end-title">Round over!</div>
+      <div class="end-sub" id="endSub">You scored 0 out of 8</div>
+      <button class="restart-btn" id="restartBtn">Play again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const words = [
+    { word: "APPLE", hint: "A common fruit", pics: ["🍎","🌳","🍏","🥧"] },
+    { word: "SUN", hint: "It shines in the daytime", pics: ["☀️","🌞","🌅","🌻"] },
+    { word: "HOUSE", hint: "A place where people live", pics: ["🏠","🏡","🚪","🛏️"] },
+    { word: "PENCIL", hint: "Used for writing or drawing", pics: ["✏️","📓","📝","🎒"] },
+    { word: "BICYCLE", hint: "A two-wheeled vehicle", pics: ["🚲","🛞","🚴","🛣️"] },
+    { word: "RAIN", hint: "Water falling from clouds", pics: ["🌧️","☔","☁️","💧"] },
+    { word: "MANGO", hint: "A sweet yellow/orange fruit", pics: ["🥭","🌳","🍹","😋"] },
+    { word: "CLOCK", hint: "It tells the time", pics: ["🕐","⏰","⌚","🕰️"] },
+    { word: "BOOK", hint: "You read it", pics: ["📖","📚","🔖","👓"] },
+    { word: "FLOWER", hint: "A colorful part of a plant", pics: ["🌸","🌹","🌻","💐"] },
+    { word: "CUP", hint: "Used to drink something", pics: ["☕","🥤","🍵","🫖"] },
+    { word: "SCHOOL", hint: "A place where students learn", pics: ["🏫","🎒","📚","✏️"] },
+    { word: "CAT", hint: "A common pet animal", pics: ["🐱","🐈","🐾","😺"] },
+    { word: "DOG", hint: "A common pet animal", pics: ["🐶","🐕","🦴","🐾"] },
+    { word: "MOUNTAIN", hint: "A very high natural landform", pics: ["⛰️","🏔️","🥾","🌄"] },
+    { word: "BEACH", hint: "A sandy place beside the sea", pics: ["🏖️","🌊","🐚","☀️"] },
+    { word: "PIZZA", hint: "A popular cheesy food", pics: ["🍕","🧀","🍅","😋"] },
+    { word: "RAINBOW", hint: "Colorful arc seen after rain", pics: ["🌈","🌧️","☀️","🌦️"] },
+    { word: "BUTTERFLY", hint: "A colorful flying insect", pics: ["🦋","🌸","🌺","🐛"] },
+    { word: "ICECREAM", hint: "A cold sweet dessert", pics: ["🍦","🍨","🍧","😋"] }
+  ];
+
+  function scrambleWord(w){
+    let arr = w.split("");
+    let scrambled;
+    do {
+      for (let i = arr.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      scrambled = arr.join("");
+    } while (scrambled === w);
+    return scrambled;
+  }
+
+  let current = 0, score = 0, locked = false;
+
+  const scrambleEl = document.getElementById("scramble");
+  const hintEl = document.getElementById("hint");
+  const hintBtn = document.getElementById("hintBtn");
+  const answerInput = document.getElementById("answerInput");
+  const checkBtn = document.getElementById("checkBtn");
+  const feedbackEl = document.getElementById("feedback");
+  const nextBtn = document.getElementById("nextBtn");
+  const qNum = document.getElementById("qNum");
+  const qTotal = document.getElementById("qTotal");
+  const scoreEl = document.getElementById("score");
+  const trackFill = document.getElementById("trackFill");
+  const pictureGrid = document.getElementById("pictureGrid");
+  const quizBody = document.getElementById("quizBody");
+  const endScreen = document.getElementById("endScreen");
+  const endSub = document.getElementById("endSub");
+  const restartBtn = document.getElementById("restartBtn");
+  const skipBtn = document.getElementById("skipBtn");
+
+  qTotal.textContent = words.length;
+
+  function loadQuestion(){
+    locked = false;
+    feedbackEl.textContent = "";
+    feedbackEl.className = "feedback";
+    nextBtn.classList.remove("show");
+    hintEl.textContent = "";
+    pictureGrid.innerHTML = "";
+    answerInput.value = "";
+    answerInput.disabled = false;
+    checkBtn.disabled = false;
+    hintBtn.disabled = false;
+    skipBtn.disabled = false;
+
+    const q = words[current];
+    pictureGrid.innerHTML = q.pics.map(p => `<div class="picture-tile">${p}</div>`).join("");
+    scrambleEl.textContent = "";
+    qNum.textContent = current + 1;
+    trackFill.style.width = (current / words.length * 100) + "%";
+    answerInput.focus();
+  }
+
+  hintBtn.addEventListener("click", () => {
+    hintEl.textContent = "Hint: " + words[current].hint;
+  });
+
+  function checkAnswer(){
+    if (locked) return;
+    const guess = answerInput.value.trim().toUpperCase();
+    if (!guess) return;
+
+    if (guess === words[current].word){
+      locked = true;
+      answerInput.disabled = true;
+      checkBtn.disabled = true;
+      hintBtn.disabled = true;
+      skipBtn.disabled = true;
+
+      score++;
+      scoreEl.textContent = score;
+      feedbackEl.textContent = "Correct! 🎉";
+      feedbackEl.className = "feedback good";
+      pictureGrid.classList.add("revealed");
+      nextBtn.classList.add("show");
+    } else {
+      // Wrong guess: don't lock, keep retrying the same question
+      feedbackEl.textContent = "Not quite — try again!";
+      feedbackEl.className = "feedback bad";
+      answerInput.value = "";
+      answerInput.focus();
+    }
+  }
+
+  checkBtn.addEventListener("click", checkAnswer);
+  answerInput.addEventListener("keydown", (e) => { if (e.key === "Enter") checkAnswer(); });
+
+  skipBtn.addEventListener("click", () => {
+    if (locked) return;
+    locked = true;
+    answerInput.disabled = true;
+    checkBtn.disabled = true;
+    hintBtn.disabled = true;
+    skipBtn.disabled = true;
+
+    feedbackEl.textContent = "Answer: " + words[current].word;
+    feedbackEl.className = "feedback bad";
+    pictureGrid.classList.add("revealed");
+    nextBtn.classList.add("show");
+  });
+
+  nextBtn.addEventListener("click", () => {
+    current++;
+    if (current < words.length){
+      loadQuestion();
+    } else {
+      trackFill.style.width = "100%";
+      quizBody.classList.add("hide");
+      endScreen.classList.add("show");
+      endSub.textContent = "You scored " + score + " out of " + words.length;
+    }
+  });
+
+  restartBtn.addEventListener("click", () => {
+    current = 0; score = 0; scoreEl.textContent = 0;
+    endScreen.classList.remove("show");
+    quizBody.classList.remove("hide");
+    loadQuestion();
+  });
+
+  loadQuestion();
+</script>
+
+</body>
+</html>
